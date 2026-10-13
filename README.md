@@ -138,7 +138,7 @@ See `.env.example`, `backend/.env.example` and `frontend/.env.example`.
 
 ## Use of AI
 
-I built this with heavy use of an AI coding assistant (Claude by Anthropic), as the brief encourages. Commits written together with it carry a `Co-Authored-By: Claude` trailer. I reviewed the code, ran it and own every decision listed above. The end-to-end flow in the demo video was recorded with Playwright, which asserts at each step that the UI shows what it should.
+I built this with heavy use of an AI coding assistant (Claude by Anthropic), as the brief encourages. I reviewed the code, ran it and own every decision listed above. The end-to-end flow in the demo video was recorded with Playwright, which asserts at each step that the UI shows what it should.
 
 ## What I'd add next
 
