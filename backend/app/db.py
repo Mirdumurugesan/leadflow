@@ -11,6 +11,9 @@ class Base(DeclarativeBase):
 
 
 def make_engine(url: str):
+    # Pin the driver: SQLAlchemy 2.0 and 2.1 pick different defaults for "postgresql://".
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
     kwargs = {"connect_args": {"check_same_thread": False}} if url.startswith("sqlite") else {"pool_pre_ping": True}
     return create_engine(url, **kwargs)
 
