@@ -23,3 +23,21 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  docker:
+    # Builds and boots the whole stack the way the README says, then smoke-tests it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d --build
+      - name: wait for the API and check the seeded data
+        run: |
+          for i in $(seq 1 60); do curl -sf localhost:8000/api/health && break; sleep 2; done
+          test "$(curl -sf localhost:8000/api/leads | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')" -ge 5
+          curl -sf -X POST localhost:8000/api/leads -H 'content-type: application/json' -d '{"name":"CI Lead"}'
+          for i in $(seq 1 30); do curl -sf localhost:3000 >/dev/null && break; sleep 2; done
+          curl -sf localhost:3000 | grep -q "<title>LeadFlow</title>"
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v
