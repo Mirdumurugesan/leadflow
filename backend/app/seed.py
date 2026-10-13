@@ -19,18 +19,25 @@ from app.db import SessionLocal, init_db
 from app.models import Discussion, DiscussionKind, Lead, LeadStatus
 
 
+def _next_half_hour(dt: datetime) -> datetime:
+    dt = dt.replace(second=0, microsecond=0)
+    return dt + timedelta(minutes=(30 - dt.minute % 30) or 30)
+
+
 def _today_at(tz: ZoneInfo, hour: int, minute: int = 0) -> datetime:
-    """Today at hh:mm local, or 2 hours from now if that time has passed (still today if possible)."""
+    """Today at hh:mm local; if that has passed, the next half hour that is still today."""
     now = datetime.now(tz)
     target = datetime.combine(now.date(), time(hour, minute), tzinfo=tz)
     if target <= now:
-        later = now + timedelta(hours=2)
-        target = later if later.date() == now.date() else now + timedelta(minutes=30)
+        later = _next_half_hour(now + timedelta(hours=1))
+        target = later if later.date() == now.date() else _next_half_hour(now)
+        if target.date() != now.date():  # seeded in the last minutes of the day
+            target = now + timedelta(minutes=5)
     return target.astimezone(timezone.utc)
 
 
 def build_leads(tz: ZoneInfo) -> list[Lead]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
     ago = lambda **kw: now - timedelta(**kw)  # noqa: E731
     yesterday_4pm = (datetime.combine(datetime.now(tz).date() - timedelta(days=1), time(16), tzinfo=tz)
                      .astimezone(timezone.utc))
@@ -43,11 +50,11 @@ def build_leads(tz: ZoneInfo) -> list[Lead]:
                  (ago(days=5), DiscussionKind.note,
                   "Discovery call. 40 advisors, tracking clients in spreadsheets. "
                   "Biggest pain: follow-ups slip and nobody knows who spoke to whom.", None),
-                 (ago(days=4), DiscussionKind.system, "Status changed from New to Qualified.", None),
+                 (ago(days=4, hours=-1), DiscussionKind.system, "Status changed from New to Qualified.", None),
                  (ago(days=2), DiscussionKind.note,
                   "Sent pricing deck for the Team plan. She will review with her MD and revert.",
                   _today_at(tz, 16)),
-                 (ago(days=2), DiscussionKind.system, "Status changed from Qualified to Proposal Sent.", None),
+                 (ago(days=2, minutes=1), DiscussionKind.system, "Status changed from Qualified to Proposal Sent.", None),
              ]),
         dict(name="Arjun Mehta", company="Northstar Capital", phone="99000 44556",
              status=LeadStatus.qualified, follow_up_at=yesterday_4pm,
@@ -64,10 +71,11 @@ def build_leads(tz: ZoneInfo) -> list[Lead]:
                  (ago(hours=2), DiscussionKind.note, "Inbound lead from the website contact form.", None),
              ]),
         dict(name="Rohan Das", company="Meridian Insurance", phone="97100 77889",
-             status=LeadStatus.contacted, follow_up_at=now + timedelta(days=2),
+             status=LeadStatus.contacted, follow_up_at=_next_half_hour(now + timedelta(days=2)),
              notes=[
                  (ago(days=12), DiscussionKind.system, "Lead created.", None),
-                 (ago(days=7), DiscussionKind.note, "Left a voicemail with his assistant.", now + timedelta(days=2)),
+                 (ago(days=7), DiscussionKind.note, "Left a voicemail with his assistant.",
+                  _next_half_hour(now + timedelta(days=2))),
              ]),
         dict(name="Sneha Kulkarni", company="Pinnacle Advisors", phone="98800 33221",
              status=LeadStatus.won, follow_up_at=None,
@@ -75,14 +83,14 @@ def build_leads(tz: ZoneInfo) -> list[Lead]:
                  (ago(days=30), DiscussionKind.system, "Lead created.", None),
                  (ago(days=24), DiscussionKind.note, "Negotiated annual billing with a 10% discount.", None),
                  (ago(days=21), DiscussionKind.note, "Contract signed! Sending the onboarding kit.", None),
-                 (ago(days=21), DiscussionKind.system, "Status changed from Proposal Sent to Won.", None),
+                 (ago(days=21, minutes=-1), DiscussionKind.system, "Status changed from Proposal Sent to Won.", None),
              ]),
         dict(name="Vikram Shah", company="Bluewater Partners", phone=None,
              status=LeadStatus.lost, follow_up_at=None,
              notes=[
                  (ago(days=20), DiscussionKind.system, "Lead created.", None),
                  (ago(days=10), DiscussionKind.note, "Going with an in-house tool. Worth revisiting next quarter.", None),
-                 (ago(days=10), DiscussionKind.system, "Status changed from Contacted to Lost.", None),
+                 (ago(days=10, minutes=-1), DiscussionKind.system, "Status changed from Contacted to Lost.", None),
              ]),
     ]
 
